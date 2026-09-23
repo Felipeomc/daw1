@@ -1,0 +1,959 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Jogo cooperativo para revisar HTML semântico, tabelas, rowspan e colspan.">
+  <title>Corrida da Tabela - Dupla Semântica</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%2317273f'/%3E%3Cpath d='M18 33l9 9 19-22' fill='none' stroke='%2337d2c2' stroke-width='8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+  <style>
+    :root {
+      --navy: #17273f;
+      --navy-2: #243b5d;
+      --ink: #203047;
+      --muted: #64758c;
+      --line: #d9e3ee;
+      --paper: #f4f7fb;
+      --white: #ffffff;
+      --mint: #27b9aa;
+      --mint-dark: #11897f;
+      --mint-soft: #e6f8f5;
+      --blue: #3478e5;
+      --blue-soft: #eaf2ff;
+      --orange: #f06a3f;
+      --orange-soft: #fff0ea;
+      --red: #d94b55;
+      --red-soft: #fdecee;
+      --green: #238c5d;
+      --green-soft: #e8f6ef;
+      --yellow: #f2b33d;
+      --shadow: 0 18px 46px rgba(23, 39, 63, .11);
+    }
+
+    * { box-sizing: border-box; }
+    html { color-scheme: light; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 8% 6%, rgba(39,185,170,.14), transparent 25rem),
+        radial-gradient(circle at 95% 12%, rgba(240,106,63,.12), transparent 22rem),
+        var(--paper);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    button, input { font: inherit; }
+    button { cursor: pointer; }
+    button:disabled { cursor: not-allowed; opacity: .68; }
+    code { font-family: "Cascadia Code", Consolas, monospace; }
+    .hidden { display: none !important; }
+
+    .shell { width: min(1460px, calc(100% - 28px)); margin: 0 auto; padding: 22px 0 40px; }
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+      margin-bottom: 18px;
+      padding: 20px 24px;
+      color: var(--white);
+      border-radius: 24px;
+      background: var(--navy);
+      box-shadow: var(--shadow);
+    }
+    .topbar h1 { margin: 2px 0 0; font-size: clamp(1.55rem, 3vw, 2.25rem); letter-spacing: -.035em; }
+    .eyebrow { margin: 0; color: var(--mint); font-size: .76rem; font-weight: 850; letter-spacing: .12em; text-transform: uppercase; }
+    .top-actions { display: flex; align-items: center; gap: 10px; }
+
+    .primary, .secondary, .ghost {
+      min-height: 46px;
+      padding: 11px 18px;
+      border-radius: 14px;
+      border: 0;
+      font-weight: 800;
+      transition: transform .16s ease, box-shadow .16s ease, background .16s ease;
+    }
+    .primary { color: var(--white); background: var(--mint-dark); box-shadow: 0 8px 0 #0a625c; }
+    .primary:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 10px 0 #0a625c; }
+    .secondary { color: var(--navy); background: var(--orange-soft); border: 1px solid #ffc8b7; }
+    .ghost { color: var(--navy); background: var(--white); border: 1px solid var(--line); }
+    .topbar .ghost { color: var(--white); background: rgba(255,255,255,.08); border-color: rgba(255,255,255,.22); }
+
+    .start-card, .finish-card {
+      display: grid;
+      grid-template-columns: 1.05fr .95fr;
+      gap: clamp(30px, 7vw, 86px);
+      align-items: center;
+      min-height: 620px;
+      padding: clamp(30px, 6vw, 82px);
+      background: var(--white);
+      border: 1px solid var(--line);
+      border-radius: 28px;
+      box-shadow: var(--shadow);
+    }
+    .start-copy h2, .finish-card h2 { margin: 12px 0 18px; font-size: clamp(2.2rem, 5vw, 4.7rem); line-height: .98; letter-spacing: -.055em; color: var(--navy); }
+    .start-copy > p { max-width: 650px; margin: 0; color: var(--muted); font-size: 1.08rem; line-height: 1.65; }
+    .cooperation-note { margin-top: 28px; padding: 18px 20px; border-left: 5px solid var(--mint); border-radius: 14px; background: var(--mint-soft); line-height: 1.5; }
+    .start-form { display: grid; gap: 10px; padding: 26px; border-radius: 22px; background: #f8fafc; border: 1px solid var(--line); }
+    .start-form label { margin-top: 5px; color: var(--navy); font-size: .88rem; font-weight: 800; }
+    .start-form label span { color: var(--muted); font-weight: 600; }
+    .start-form input { width: 100%; min-height: 48px; padding: 11px 13px; color: var(--ink); background: var(--white); border: 1px solid #bdcad8; border-radius: 12px; outline: none; }
+    .start-form input:focus { border-color: var(--mint-dark); box-shadow: 0 0 0 4px rgba(39,185,170,.14); }
+    .start-form .primary { margin-top: 12px; }
+
+    .game-grid {
+      display: grid;
+      grid-template-columns: minmax(230px, .72fr) minmax(520px, 1.65fr) minmax(240px, .76fr);
+      gap: 16px;
+      align-items: stretch;
+    }
+    .panel { background: var(--white); border: 1px solid var(--line); border-radius: 22px; box-shadow: var(--shadow); }
+    .progress-card, .turn-card { padding: 22px; }
+    .question-card { min-height: 600px; padding: clamp(24px, 4vw, 42px); }
+    .history-card { grid-column: 1 / -1; padding: 22px; }
+
+    .team-label { color: var(--muted); font-size: .75rem; font-weight: 850; letter-spacing: .1em; text-transform: uppercase; }
+    .team-name { display: block; margin: 4px 0 18px; color: var(--navy); font-size: 1.35rem; }
+    .shared-chip { display: inline-flex; align-items: center; gap: 7px; padding: 7px 10px; border-radius: 999px; color: var(--mint-dark); background: var(--mint-soft); font-size: .78rem; font-weight: 850; }
+    .shared-chip::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--mint); }
+
+    .position-block { margin: 24px 0; padding: 18px; border-radius: 18px; background: var(--navy); color: var(--white); }
+    .position-number { display: flex; align-items: baseline; gap: 5px; }
+    .position-number strong { font-size: 3rem; line-height: 1; }
+    .position-number span { color: #b9c8d8; font-weight: 800; }
+    .position-block p { margin: 7px 0 13px; color: #cbd7e4; font-size: .82rem; }
+    .progress-track { height: 9px; overflow: hidden; border-radius: 999px; background: rgba(255,255,255,.13); }
+    .progress-track > div { width: 0; height: 100%; border-radius: inherit; background: var(--mint); transition: width .5s ease; }
+
+    .topic-flow { display: grid; gap: 7px; }
+    .topic-flow div { display: flex; align-items: center; gap: 9px; padding: 9px; border-radius: 11px; color: var(--muted); font-size: .8rem; font-weight: 750; }
+    .topic-flow span { display: grid; place-items: center; width: 25px; height: 25px; border-radius: 8px; background: #edf2f7; font-size: .68rem; }
+    .topic-flow div.active { color: var(--navy); background: var(--orange-soft); }
+    .topic-flow div.active span { color: var(--white); background: var(--orange); }
+    .topic-flow div.done { color: var(--mint-dark); }
+    .topic-flow div.done span { color: var(--white); background: var(--mint); }
+
+    .route { margin-bottom: 28px; padding: 15px 16px; border-radius: 16px; background: #f8fafc; border: 1px solid var(--line); }
+    .route-head { display: flex; justify-content: space-between; gap: 12px; margin-bottom: 10px; color: var(--muted); font-size: .8rem; }
+    .route-head strong { color: var(--navy); }
+    .route-cells { display: grid; grid-template-columns: repeat(31, minmax(6px, 1fr)); gap: 3px; }
+    .route-cell { position: relative; display: grid; place-items: center; aspect-ratio: 1; min-width: 5px; border-radius: 50%; background: #dce5ee; }
+    .route-cell.passed { background: var(--mint); }
+    .route-cell.current { z-index: 3; outline: 3px solid rgba(240,106,63,.32); background: var(--orange); transform: scale(1.35); }
+    .route-cell.special::after { content: attr(data-symbol); position: absolute; display: grid; place-items: center; width: 19px; height: 19px; border: 2px solid var(--white); border-radius: 50%; color: var(--white); background: var(--blue); box-shadow: 0 2px 5px rgba(15,39,65,.25); font-size: .68rem; font-weight: 950; line-height: 1; }
+    .route-cell.penalty::after { background: var(--red); }
+    .route-cell.bonus::after { background: var(--orange); }
+    .route-legend { display: flex; flex-wrap: wrap; gap: 8px 14px; margin-top: 12px; color: var(--muted); font-size: .7rem; font-weight: 800; }
+    .route-legend span { white-space: nowrap; }
+
+    .question-meta { display: flex; justify-content: space-between; gap: 14px; margin-bottom: 22px; color: var(--muted); font-size: .86rem; font-weight: 800; }
+    .question-meta span:last-child { color: var(--mint-dark); }
+    .question-card h2 { margin: 0 0 26px; color: var(--navy); font-size: clamp(1.45rem, 3vw, 2.2rem); line-height: 1.2; white-space: pre-line; }
+    .answers { display: grid; gap: 12px; }
+    .answer { width: 100%; padding: 16px 18px; color: var(--ink); text-align: left; background: var(--white); border: 2px solid var(--line); border-radius: 15px; font-weight: 750; line-height: 1.4; }
+    .answer:hover:not(:disabled) { border-color: var(--blue); background: var(--blue-soft); transform: translateX(3px); }
+    .answer.correct { color: #146a47; border-color: var(--green); background: var(--green-soft); }
+    .answer.wrong { color: #9e2832; border-color: var(--red); background: var(--red-soft); }
+    .feedback { margin-top: 18px; padding: 16px 18px; border-radius: 14px; line-height: 1.5; font-weight: 700; }
+    .feedback.good { color: #155f43; background: var(--green-soft); border-left: 5px solid var(--green); }
+    .feedback.bad { color: #922934; background: var(--red-soft); border-left: 5px solid var(--red); }
+    .question-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 18px; }
+
+    .turn-banner { padding: 16px; border-radius: 16px; color: var(--white); background: linear-gradient(145deg, var(--blue), #2258b0); }
+    .turn-banner p { margin: 0 0 5px; font-size: .73rem; font-weight: 850; letter-spacing: .1em; text-transform: uppercase; opacity: .8; }
+    .turn-banner strong { display: block; font-size: 1.35rem; line-height: 1.15; }
+    .team-pair { display: grid; gap: 8px; margin: 14px 0 22px; }
+    .player-row { display: flex; justify-content: space-between; gap: 12px; padding: 10px 12px; border-radius: 12px; color: var(--muted); background: #f4f7fa; font-size: .83rem; }
+    .player-row.active { color: var(--navy); background: var(--orange-soft); outline: 2px solid #ffc9b8; }
+    .player-row strong { color: inherit; }
+    .last-move { padding-top: 18px; border-top: 1px solid var(--line); text-align: center; }
+    .last-move > p { margin: 0 0 14px; color: var(--muted); font-size: .74rem; font-weight: 850; letter-spacing: .1em; text-transform: uppercase; }
+    .dice { display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(3, 1fr); place-items: center; width: 90px; height: 90px; margin: 0 auto 15px; padding: 13px; border: 3px solid var(--navy); border-radius: 21px; background: #f7fbff; box-shadow: 7px 8px 0 #c8e7dc; }
+    .dice i { display: none; width: 13px; height: 13px; border-radius: 50%; background: var(--navy); }
+    .dice i:nth-child(1) { grid-area: 1 / 1; }
+    .dice i:nth-child(5) { grid-area: 2 / 2; }
+    .dice i:nth-child(9) { grid-area: 3 / 3; }
+    .dice.face-1 i:nth-child(5),
+    .dice.face-2 i:nth-child(1), .dice.face-2 i:nth-child(9),
+    .dice.face-3 i:nth-child(1), .dice.face-3 i:nth-child(5), .dice.face-3 i:nth-child(9) { display: block; }
+    .dice.rolling { animation: shake .16s linear infinite alternate; }
+    @keyframes shake { from { transform: rotate(-4deg) scale(.98); } to { transform: rotate(4deg) scale(1.03); } }
+    #moveText { display: block; color: var(--navy); line-height: 1.35; }
+    #markText { display: block; margin-top: 8px; color: var(--orange); font-size: .82rem; font-weight: 850; line-height: 1.35; }
+
+    .section-heading { display: flex; align-items: center; justify-content: space-between; gap: 20px; margin-bottom: 14px; }
+    .section-heading h2 { margin: 2px 0 0; color: var(--navy); }
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; min-width: 780px; }
+    th, td { padding: 11px 10px; border-bottom: 1px solid var(--line); text-align: left; font-size: .79rem; }
+    th { color: var(--muted); font-size: .7rem; letter-spacing: .06em; text-transform: uppercase; }
+    .empty-row td { color: var(--muted); text-align: center; padding: 28px; }
+    .result-good { color: var(--green); font-weight: 850; }
+    .result-bad { color: var(--red); font-weight: 850; }
+
+    .finish-card { grid-template-columns: 1fr; text-align: center; }
+    .finish-card h2 { max-width: 900px; margin-inline: auto; }
+    .finish-mark { display: grid; place-items: center; width: 82px; height: 82px; margin: 0 auto; border-radius: 24px; color: var(--white); background: var(--mint); font-size: 2.8rem; font-weight: 900; transform: rotate(-3deg); }
+    .finish-card > p:not(.eyebrow) { max-width: 750px; margin: 0 auto; color: var(--muted); font-size: 1.08rem; line-height: 1.6; }
+    .finish-actions { display: flex; justify-content: center; flex-wrap: wrap; gap: 12px; margin-top: 24px; }
+
+    .challenge-overlay { position: fixed; inset: 0; z-index: 30; display: grid; place-items: center; padding: 20px; background: rgba(10,27,45,.78); backdrop-filter: blur(4px); }
+    .challenge-overlay.hidden { display: none; }
+    .challenge-box { width: min(100%, 620px); padding: clamp(24px, 5vw, 42px); border: 3px solid var(--navy); border-radius: 24px; background: var(--white); box-shadow: 12px 14px 0 rgba(76,194,155,.36); text-align: center; }
+    .challenge-icon { display: grid; place-items: center; width: 62px; height: 62px; margin: 0 auto 14px; border-radius: 18px; color: var(--white); background: var(--blue); font-size: 2rem; font-weight: 950; transform: rotate(-5deg); }
+    .challenge-box h2 { margin: 4px 0 10px; color: var(--navy); font-size: clamp(1.6rem, 4vw, 2.25rem); }
+    .challenge-box > p:not(.eyebrow) { margin: 0 0 20px; color: var(--ink); font-size: 1.05rem; font-weight: 750; line-height: 1.5; }
+    .challenge-answers { display: grid; gap: 10px; text-align: left; }
+    .challenge-box .feedback { text-align: left; }
+    .challenge-box .primary { margin-top: 18px; }
+
+    .screen-reader-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+
+    @media (max-width: 1080px) {
+      .game-grid { grid-template-columns: 1fr 1.5fr; }
+      .turn-card { grid-column: 1; }
+      .question-card { grid-column: 2; grid-row: 1 / span 2; }
+      .history-card { grid-column: 1 / -1; }
+    }
+    @media (max-width: 760px) {
+      .shell { width: min(100% - 16px, 720px); padding-top: 8px; }
+      .topbar { align-items: flex-start; padding: 18px; }
+      .top-actions { flex-direction: column; align-items: stretch; }
+      .start-card { grid-template-columns: 1fr; min-height: 0; padding: 24px; }
+      .game-grid { grid-template-columns: 1fr; }
+      .progress-card, .turn-card, .question-card, .history-card { grid-column: 1; grid-row: auto; }
+      .question-card { min-height: 0; }
+      .route-cells { gap: 2px; }
+      .route-cell.special::after { width: 16px; height: 16px; font-size: .58rem; }
+      .question-actions { flex-direction: column; }
+      .question-actions button { width: 100%; }
+    }
+    @media print {
+      body { background: white; }
+      .topbar, .progress-card, .turn-card, .question-card, .finish-card, .start-card { display: none !important; }
+      .history-card { display: block !important; box-shadow: none; border: 0; }
+      .shell { width: 100%; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; transition-duration: .01ms !important; }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">REVISÃO COOPERATIVA</p>
+        <h1>Corrida da Tabela</h1>
+      </div>
+      <div class="top-actions">
+        <button id="exportBtn" class="ghost hidden" type="button">Baixar resultado</button>
+        <button id="resetBtn" class="ghost" type="button">Reiniciar</button>
+      </div>
+    </header>
+
+    <section id="startScreen" class="start-card">
+      <div class="start-copy">
+        <p>Respondam em turnos e movimentem uma única peça. Revisem a estrutura das tabelas, as tags semânticas e as mesclagens. Depois de cada avanço ou recuo, marquem a nova posição no tabuleiro impresso.</p>
+      </div>
+      <form id="startForm" class="start-form">
+        <label for="teamName">Nome da equipe</label>
+        <input id="teamName" name="teamName" maxlength="40" autocomplete="off" placeholder="Ex.: Dupla Semântica" required>
+        <label for="player1">Nome do Jogador 1</label>
+        <input id="player1" name="player1" maxlength="32" autocomplete="off" placeholder="Jogador 1" required>
+        <label for="player2">Nome do Jogador 2</label>
+        <input id="player2" name="player2" maxlength="32" autocomplete="off" placeholder="Jogador 2" required>
+        <label for="className">Turma <span>(opcional)</span></label>
+        <input id="className" name="className" maxlength="30" autocomplete="off" placeholder="Ex.: 3º ano A">
+        <button class="primary" type="submit">Começar a revisão</button>
+      </form>
+    </section>
+
+    <section id="gameScreen" class="game-grid hidden" aria-live="polite">
+      <aside class="panel progress-card">
+        <span class="team-label">Equipe</span>
+        <strong id="teamDisplay" class="team-name"></strong>
+        <span class="shared-chip">progresso compartilhado</span>
+
+        <div class="position-block">
+          <div class="position-number"><strong id="positionValue">0</strong><span>/ 30</span></div>
+          <p>posição da equipe no tabuleiro</p>
+          <div class="progress-track"><div id="progressFill"></div></div>
+        </div>
+
+        <div class="topic-flow" aria-label="Etapas da revisão">
+          <div data-topic="0"><span>01</span>Semântica</div>
+          <div data-topic="1"><span>02</span>Estrutura</div>
+          <div data-topic="2"><span>03</span>Cabeçalhos</div>
+          <div data-topic="3"><span>04</span>rowspan</div>
+          <div data-topic="4"><span>05</span>colspan</div>
+          <div data-topic="5"><span>06</span>Depuração</div>
+        </div>
+      </aside>
+
+      <section class="panel question-card">
+        <div class="route">
+          <div class="route-head"><strong>Caminho da equipe</strong><span id="routePosition">Casa 0 de 30</span></div>
+          <div id="routeCells" class="route-cells" aria-label="Progresso da casa 0 até a casa 30"></div>
+          <div class="route-legend" aria-label="Legenda das casas especiais">
+            <span>★ desafio extra</span><span>⚡ avance 1</span><span>↶ volte 1</span>
+          </div>
+        </div>
+        <div class="question-meta">
+          <span id="roundCounter">Rodada 1</span>
+          <span id="topicName">Semântica</span>
+        </div>
+        <h2 id="questionText"></h2>
+        <div id="answers" class="answers"></div>
+        <div id="feedback" class="feedback hidden"></div>
+        <div class="question-actions">
+          <button id="rollBtn" class="primary hidden" type="button">Girar o dado</button>
+          <button id="nextBtn" class="primary hidden" type="button">Próxima rodada</button>
+        </div>
+      </section>
+
+      <aside class="panel turn-card">
+        <div class="turn-banner">
+          <p>Agora responde</p>
+          <strong id="turnName"></strong>
+        </div>
+        <div class="team-pair">
+          <div id="playerRow0" class="player-row"><span>Jogador 1</span><strong id="playerName0"></strong></div>
+          <div id="playerRow1" class="player-row"><span>Jogador 2</span><strong id="playerName1"></strong></div>
+        </div>
+        <div class="last-move">
+          <p>Movimento da rodada</p>
+          <div id="dice" class="dice face-0" aria-label="Dado ainda não lançado">
+            <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+          </div>
+          <strong id="moveText">Responda para movimentar a equipe</strong>
+          <span id="markText">Posição inicial: casa 0</span>
+        </div>
+      </aside>
+
+      <section class="panel history-card">
+        <div class="section-heading">
+          <div><p class="eyebrow">REGISTRO DA EQUIPE</p><h2>Histórico das rodadas</h2></div>
+          <span id="classDisplay" class="shared-chip"></span>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Rodada</th><th>Jogador</th><th>Tema</th><th>Resultado</th><th>Movimento</th><th>Evento</th><th>Posição</th></tr></thead>
+            <tbody id="historyBody"><tr class="empty-row"><td colspan="7">Nenhuma rodada registrada.</td></tr></tbody>
+          </table>
+        </div>
+      </section>
+    </section>
+
+    <section id="finishScreen" class="finish-card hidden">
+      <div class="finish-mark">✓</div>
+      <p class="eyebrow">REVISÃO CONCLUÍDA</p>
+      <h2>A equipe chegou à casa 30!</h2>
+      <p id="finishSummary"></p>
+      <div class="finish-actions">
+        <button id="finishExportBtn" class="primary" type="button">Baixar resultado</button>
+        <button id="finishResetBtn" class="ghost" type="button">Nova equipe</button>
+      </div>
+    </section>
+
+    <div id="challengeOverlay" class="challenge-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="challengeTitle">
+      <section class="challenge-box">
+        <span class="challenge-icon" aria-hidden="true">★</span>
+        <p class="eyebrow">CASA DESAFIO</p>
+        <h2 id="challengeTitle">Desafio extra</h2>
+        <p id="challengeText"></p>
+        <div id="challengeAnswers" class="challenge-answers"></div>
+        <div id="challengeFeedback" class="feedback hidden" aria-live="polite"></div>
+        <button id="challengeContinue" class="primary hidden" type="button">Continuar a corrida</button>
+      </section>
+    </div>
+  </main>
+
+  <script>
+    const questionBank = [
+      { id: "E01", tier: "easy", topic: "Semântica", q: "O que significa usar HTML semântico?", a: ["Escolher tags de acordo com o papel do conteúdo", "Usar apenas tags curtas", "Colorir todas as tags"], correct: 0, note: "A semântica comunica o significado e a função de cada parte da página." },
+      { id: "E02", tier: "easy", topic: "Semântica", q: "Quando uma <table> é a escolha adequada?", a: ["Quando os dados têm relação entre linhas e colunas", "Quando queremos apenas alinhar a página", "Quando precisamos criar um menu"], correct: 0, note: "Tabelas servem para dados tabulares, não para montar o layout da página." },
+      { id: "E03", tier: "easy", topic: "Estrutura", q: "Qual tag cria a tabela inteira?", a: ["<table>", "<tr>", "<td>"], correct: 0, note: "Todo o conteúdo tabular fica dentro de <table>." },
+      { id: "E04", tier: "easy", topic: "Estrutura", q: "Qual tag cria uma linha da tabela?", a: ["<tr>", "<th>", "<caption>"], correct: 0, note: "tr vem de table row: linha da tabela." },
+      { id: "E05", tier: "easy", topic: "Estrutura", q: "Qual tag representa uma célula comum de dados?", a: ["<td>", "<th>", "<tbody>"], correct: 0, note: "td vem de table data: dado da tabela." },
+      { id: "E06", tier: "easy", topic: "Cabeçalhos", q: "Qual tag representa uma célula de cabeçalho?", a: ["<th>", "<td>", "<title>"], correct: 0, note: "th identifica um cabeçalho de linha ou de coluna." },
+      { id: "E07", tier: "easy", topic: "Cabeçalhos", q: "Para que serve <caption>?", a: ["Dar um título descritivo à tabela", "Criar uma coluna", "Aplicar uma borda"], correct: 0, note: "caption identifica o assunto da tabela para leitores e tecnologias assistivas." },
+      { id: "E08", tier: "easy", topic: "Estrutura", q: "Uma linha possui três células <td>. Quantas colunas ela forma nessa linha?", a: ["3", "1", "6"], correct: 0, note: "Sem mesclagem, cada célula ocupa uma coluna." },
+      { id: "E09", tier: "easy", topic: "Estrutura", q: "Onde uma célula <td> deve aparecer?", a: ["Dentro de uma linha <tr>", "Diretamente dentro de <head>", "Fora da tabela"], correct: 0, note: "As células ficam dentro de linhas, e as linhas ficam dentro da tabela." },
+      { id: "E10", tier: "easy", topic: "Semântica", q: "Uma tabela de horário escolar é um bom uso de <table> porque...", a: ["Relaciona horários, dias e disciplinas", "Tem muitas cores", "Substitui qualquer CSS"], correct: 0, note: "Os valores podem ser lidos por linha e por coluna." },
+      { id: "E11", tier: "easy", topic: "Estrutura", q: "Qual estrutura mínima cria uma linha com um dado?", a: ["<tr><td>Matemática</td></tr>", "<td><tr>Matemática</tr></td>", "<table>Matemática</table>"], correct: 0, note: "A linha envolve a célula de dado." },
+      { id: "E12", tier: "easy", topic: "Cabeçalhos", q: "Em uma tabela de notas, 'Aluno' e 'Nota' devem usar...", a: ["<th>", "<td>", "<p>"], correct: 0, note: "Eles identificam o significado das colunas." },
+
+      { id: "M01", tier: "medium", topic: "Cabeçalhos", q: "Qual grupo reúne as linhas de cabeçalho da tabela?", a: ["<thead>", "<tbody>", "<tfoot>"], correct: 0, note: "thead agrupa o cabeçalho, enquanto tbody agrupa os dados principais." },
+      { id: "M02", tier: "medium", topic: "Cabeçalhos", q: "Qual grupo reúne os dados principais da tabela?", a: ["<tbody>", "<caption>", "<head>"], correct: 0, note: "tbody organiza as linhas que contêm o corpo dos dados." },
+      { id: "M03", tier: "medium", topic: "rowspan", q: "O que rowspan=\"2\" informa?", a: ["A célula ocupa duas linhas", "A linha contém duas tabelas", "A célula ocupa duas colunas"], correct: 0, note: "rowspan faz a célula continuar verticalmente pela linha seguinte." },
+      { id: "M04", tier: "medium", topic: "rowspan", q: "Uma célula com rowspan=\"2\" já ocupa espaço na linha seguinte. O que fazer nessa linha?", a: ["Criar uma célula a menos naquela posição", "Repetir a mesma célula", "Fechar a tabela antes"], correct: 0, note: "Repetir a célula provoca desalinhamento porque o espaço já está ocupado." },
+      { id: "M05", tier: "medium", topic: "colspan", q: "O que colspan=\"3\" informa?", a: ["A célula ocupa três colunas", "A tabela tem três linhas", "A célula ocupa três páginas"], correct: 0, note: "colspan estende a célula horizontalmente por três colunas." },
+      { id: "M06", tier: "medium", topic: "colspan", q: "Uma linha tem quatro colunas no total. A primeira célula contém o horário. Qual colspan faz 'Intervalo' ocupar as outras três?", a: ["colspan=\"3\"", "colspan=\"4\"", "rowspan=\"3\""], correct: 0, note: "O horário ocupa uma coluna e Intervalo ocupa as três restantes." },
+      { id: "M07", tier: "medium", topic: "colspan", q: "Depois de <td colspan=\"3\">Intervalo</td>, devemos criar mais três <td> na mesma linha?", a: ["Não, a célula já ocupa as três colunas", "Sim, sempre", "Somente se houver caption"], correct: 0, note: "Células extras criariam colunas sobrando e quebrariam o alinhamento." },
+      { id: "M08", tier: "medium", topic: "rowspan", q: "Segunda-feira tem Matemática às 07:00 e 07:50. Qual código evita repetir a disciplina?", a: ["<td rowspan=\"2\">Matemática</td>", "<td colspan=\"2\">Matemática</td>", "<tr rowspan=\"2\">Matemática</tr>"], correct: 0, note: "A mesma célula precisa ocupar duas linhas consecutivas." },
+      { id: "M09", tier: "medium", topic: "Cabeçalhos", q: "Qual ordem é mais clara dentro de <table>?", a: ["<caption>, <thead>, <tbody>", "<tbody>, <head>, <caption>", "<td>, <table>, <tr>"], correct: 0, note: "O título vem primeiro, seguido do cabeçalho e do corpo da tabela." },
+      { id: "M10", tier: "medium", topic: "Estrutura", q: "Por que não existe uma tag <coluna> para cada coluna de dados?", a: ["As colunas surgem da posição das células nas linhas", "HTML não permite colunas", "Toda tabela tem uma só coluna"], correct: 0, note: "Células na mesma posição de linhas diferentes formam visualmente uma coluna." },
+      { id: "M11", tier: "medium", topic: "Cabeçalhos", q: "Qual trecho cria um cabeçalho com duas colunas?", a: ["<tr><th>Nome</th><th>Nota</th></tr>", "<th><tr>Nome</tr><tr>Nota</tr></th>", "<td>Nome Nota</td>"], correct: 0, note: "Uma linha de cabeçalho contém duas células th." },
+      { id: "M12", tier: "medium", topic: "Semântica", q: "Qual escolha melhora a compreensão da tabela sem depender do visual?", a: ["Usar caption e cabeçalhos th", "Usar apenas cores", "Retirar os textos"], correct: 0, note: "Título e cabeçalhos deixam as relações explícitas no próprio HTML." },
+      { id: "M13", tier: "medium", topic: "colspan", q: "Em uma tabela de três colunas, qual linha cria uma mensagem ocupando toda a largura?", a: ["<tr><td colspan=\"3\">Sem dados</td></tr>", "<tr colspan=\"3\"><td>Sem dados</td></tr>", "<td rowspan=\"3\">Sem dados</td>"], correct: 0, note: "colspan pertence à célula que se estende pelas colunas." },
+      { id: "M14", tier: "medium", topic: "rowspan", q: "Qual direção o rowspan amplia?", a: ["De cima para baixo", "Da esquerda para a direita", "Para fora da tabela"], correct: 0, note: "row significa linha, por isso a mesclagem é vertical." },
+
+      { id: "A01", tier: "advanced", topic: "Depuração", q: "Uma tabela de quatro colunas usa <td colspan=\"3\">Aviso</td> e ainda cria três células na mesma linha. Qual é o problema?", a: ["A linha passa a ocupar colunas demais", "Falta um segundo caption", "colspan só aceita 2"], correct: 0, note: "A célula mesclada já ocupa três posições e não deve ser acompanhada por três células extras." },
+      { id: "A02", tier: "advanced", topic: "Depuração", q: "Uma célula usa rowspan=\"2\", mas a linha seguinte repete uma célula na mesma coluna. O efeito provável é...", a: ["Desalinhamento das células seguintes", "Criação automática de caption", "Remoção da primeira linha"], correct: 0, note: "A célula mesclada já reservou aquela posição na linha seguinte." },
+      { id: "A03", tier: "advanced", topic: "Cabeçalhos", q: "Em <th scope=\"col\">Terça</th>, o atributo scope informa que o cabeçalho se aplica...", a: ["À coluna", "À linha", "À página inteira"], correct: 0, note: "scope=\"col\" explicita a relação do cabeçalho com sua coluna." },
+      { id: "A04", tier: "advanced", topic: "Cabeçalhos", q: "Para identificar o horário no início de cada linha, qual opção é mais semântica?", a: ["<th scope=\"row\">07:00</th>", "<td scope=\"col\">07:00</td>", "<caption>07:00</caption>"], correct: 0, note: "O horário funciona como cabeçalho daquela linha." },
+      { id: "A05", tier: "advanced", topic: "Estrutura", q: "Qual grupo pode reunir totais ou observações finais de uma tabela?", a: ["<tfoot>", "<thead>", "<title>"], correct: 0, note: "tfoot representa o rodapé estrutural da tabela." },
+      { id: "A06", tier: "advanced", topic: "Depuração", q: "Uma linha deveria ter quatro posições. Ela contém um <td>, um <td colspan=\"2\"> e outro <td>. Quantas posições ocupa?", a: ["4", "3", "5"], correct: 0, note: "As ocupações são 1 + 2 + 1, totalizando quatro colunas." },
+      { id: "A07", tier: "advanced", topic: "Depuração", q: "Uma linha deveria ter quatro posições. Ela contém dois <td> e um <td colspan=\"3\">. Qual diagnóstico está correto?", a: ["Ocupa cinco posições e sobra uma coluna", "Ocupa exatamente quatro", "Ocupa somente três"], correct: 0, note: "As ocupações são 1 + 1 + 3, totalizando cinco." },
+      { id: "A08", tier: "advanced", topic: "Semântica", q: "Qual tabela tende a ser mais acessível?", a: ["A que usa caption, th e scope coerentes", "A que usa somente cores", "A que substitui textos por espaços"], correct: 0, note: "Estrutura e relações explícitas ajudam leitores de tela e também facilitam a manutenção." },
+      { id: "A09", tier: "advanced", topic: "Depuração", q: "O navegador exibe uma tabela, mas os dados ficaram em colunas erradas após um rowspan. Qual verificação fazer primeiro?", a: ["Contar as posições ocupadas em cada linha", "Trocar table por div", "Remover todos os cabeçalhos"], correct: 0, note: "Cada linha deve completar a mesma grade, considerando as células que continuam de linhas anteriores." },
+      { id: "A10", tier: "advanced", topic: "colspan", q: "Uma tabela tem Horário mais cinco dias. Qual colspan faz Intervalo ocupar apenas os cinco dias?", a: ["colspan=\"5\"", "colspan=\"6\"", "rowspan=\"5\""], correct: 0, note: "A coluna Horário permanece separada e a célula ocupa as cinco colunas dos dias." },
+      { id: "A11", tier: "advanced", topic: "Cabeçalhos", q: "Qual combinação separa estrutura e aparência de forma adequada?", a: ["HTML para a tabela e CSS para bordas, espaçamento e cores", "HTML apenas para cores", "CSS para criar os dados da tabela"], correct: 0, note: "O HTML descreve o conteúdo e o CSS controla a apresentação." },
+      { id: "A12", tier: "advanced", topic: "Depuração", q: "Por que table border=\"1\" pode aparecer em uma primeira aula, mas não é a solução final?", a: ["Serve para visualizar a grade; depois a aparência deve ir para o CSS", "Porque remove a semântica", "Porque cria linhas extras"], correct: 0, note: "O atributo ajuda na prática inicial, mas a estilização deve ficar no CSS." },
+      { id: "A13", tier: "advanced", topic: "Semântica", q: "Qual frase descreve melhor uma tabela responsiva?", a: ["A estrutura continua semântica e um contêiner permite rolagem horizontal quando necessário", "A tabela vira uma imagem", "Todas as células são apagadas no celular"], correct: 0, note: "Um contêiner com overflow-x preserva a leitura da tabela em telas estreitas." },
+      { id: "A14", tier: "advanced", topic: "Depuração", q: "Depois de corrigir uma mesclagem, qual conferência é mais útil?", a: ["Verificar no navegador e contar as posições de cada linha", "Olhar apenas o nome do arquivo", "Adicionar células até preencher a tela"], correct: 0, note: "A inspeção visual deve ser acompanhada da leitura estrutural do código." },
+      { id: "A15", tier: "advanced", topic: "rowspan", q: "Uma célula usa rowspan=\"3\". Em quantas linhas seguintes sua posição já estará ocupada?", a: ["2", "3", "1"], correct: 0, note: "A célula começa na linha atual e continua por mais duas linhas." },
+      { id: "A16", tier: "advanced", topic: "colspan", q: "Uma linha tem duas células comuns e uma célula com colspan=\"3\". Quantas posições ela ocupa?", a: ["5", "3", "6"], correct: 0, note: "As ocupações são 1 + 1 + 3, totalizando cinco posições." }
+    ];
+
+    const STORAGE_KEY = "corridaTabelaCooperativa.v1";
+    const topics = ["Semântica", "Estrutura", "Cabeçalhos", "rowspan", "colspan", "Depuração"];
+    const specialSquares = {
+      7: { type: "penalty", symbol: "↶", text: "Linha desalinhada: volte 1 casa." },
+      12: { type: "challenge", symbol: "★", challenge: 0, text: "Desafio de estrutura." },
+      17: { type: "bonus", symbol: "⚡", text: "Estrutura semântica correta: avance 1 casa." },
+      21: { type: "penalty", symbol: "↶", text: "Célula repetida após rowspan: volte 1 casa." },
+      24: { type: "challenge", symbol: "★", challenge: 1, text: "Desafio de mesclagem." },
+      28: { type: "penalty", symbol: "↶", text: "Colspan incorreto: volte 1 casa." }
+    };
+    const challenges = [
+      {
+        title: "Monte o cabeçalho",
+        q: "Qual trecho cria uma linha com dois cabeçalhos: Nome e E-mail?",
+        a: [
+          "<tr><th>Nome</th><th>E-mail</th></tr>",
+          "<th><tr>Nome</tr><tr>E-mail</tr></th>",
+          "<tr><td colspan=\"2\">Nome e E-mail</td></tr>"
+        ],
+        correct: 0,
+        note: "A linha <tr> deve conter uma célula <th> para cada cabeçalho."
+      },
+      {
+        title: "Complete a mesclagem",
+        q: "A tabela tem uma coluna Horário e quatro dias. Qual célula faz 'Intervalo' ocupar somente os quatro dias?",
+        a: [
+          "<td colspan=\"4\">Intervalo</td>",
+          "<td colspan=\"5\">Intervalo</td>",
+          "<td rowspan=\"4\">Intervalo</td>"
+        ],
+        correct: 0,
+        note: "A coluna Horário continua separada; colspan=\"4\" ocupa as quatro colunas dos dias."
+      }
+    ];
+    const $ = (id) => document.getElementById(id);
+    let state = freshState();
+
+    function freshState() {
+      return {
+        team: "", players: ["", ""], className: "", currentPlayer: 0,
+        position: 0, round: 1, currentQuestionId: null,
+        answerOrder: null,
+        used: { easy: [], medium: [], advanced: [] },
+        history: [], answersLog: [], phase: "question", pendingChallenge: null, finished: false,
+        startedAt: null
+      };
+    }
+
+    function save() { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
+    function load() {
+      try {
+        const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
+        if (saved && saved.team && Array.isArray(saved.players)) {
+          state = { ...freshState(), ...saved, used: { ...freshState().used, ...(saved.used || {}) } };
+        }
+      } catch (_) { localStorage.removeItem(STORAGE_KEY); }
+    }
+
+    function tierForPosition(position) {
+      if (position < 10) return "easy";
+      if (position < 20) return "medium";
+      return "advanced";
+    }
+
+    function topicIndexForPosition(position) {
+      if (position >= 26) return 5;
+      if (position >= 21) return 4;
+      if (position >= 16) return 3;
+      if (position >= 11) return 2;
+      if (position >= 6) return 1;
+      return 0;
+    }
+
+    function randomInt(min, max) {
+      return Math.floor(Math.random() * (max - min + 1)) + min;
+    }
+
+    function chooseQuestion() {
+      const tier = tierForPosition(state.position);
+      const desiredTopic = topics[topicIndexForPosition(state.position)];
+      let candidates = questionBank.filter((item) => item.tier === tier && item.topic === desiredTopic && !state.used[tier].includes(item.id));
+      if (!candidates.length) {
+        const topicIds = new Set(questionBank.filter((item) => item.tier === tier && item.topic === desiredTopic).map((item) => item.id));
+        state.used[tier] = state.used[tier].filter((id) => !topicIds.has(id));
+        candidates = questionBank.filter((item) => item.tier === tier && item.topic === desiredTopic);
+      }
+      if (!candidates.length) {
+        candidates = questionBank.filter((item) => item.tier === tier && !state.used[tier].includes(item.id));
+      }
+      const item = candidates[randomInt(0, candidates.length - 1)];
+      state.used[tier].push(item.id);
+      state.currentQuestionId = item.id;
+      state.answerOrder = shuffledIndexes(item.a.length);
+      state.phase = "question";
+      save();
+      return item;
+    }
+
+    function shuffledIndexes(length) {
+      const indexes = Array.from({ length }, (_, index) => index);
+      for (let i = indexes.length - 1; i > 0; i -= 1) {
+        const j = randomInt(0, i);
+        [indexes[i], indexes[j]] = [indexes[j], indexes[i]];
+      }
+      return indexes;
+    }
+
+    function answerOrderFor(item) {
+      const valid = Array.isArray(state.answerOrder)
+        && state.answerOrder.length === item.a.length
+        && new Set(state.answerOrder).size === item.a.length;
+      if (!valid) {
+        state.answerOrder = shuffledIndexes(item.a.length);
+        save();
+      }
+      return state.answerOrder;
+    }
+
+    function currentQuestion() {
+      return questionBank.find((item) => item.id === state.currentQuestionId) || chooseQuestion();
+    }
+
+    function renderRoute() {
+      const route = $("routeCells");
+      route.innerHTML = "";
+      for (let house = 0; house <= 30; house += 1) {
+        const cell = document.createElement("span");
+        cell.className = "route-cell";
+        const special = specialSquares[house];
+        if (special) {
+          cell.classList.add("special", special.type);
+          cell.dataset.symbol = special.symbol;
+        }
+        if (house <= state.position) cell.classList.add("passed");
+        if (house === state.position) cell.classList.add("current");
+        cell.title = special ? `Casa ${house}: ${special.text}` : `Casa ${house}`;
+        route.appendChild(cell);
+      }
+      $("routePosition").textContent = `Casa ${state.position} de 30`;
+    }
+
+    function renderProgress() {
+      $("positionValue").textContent = state.position;
+      $("progressFill").style.width = `${(state.position / 30) * 100}%`;
+      const activeTopic = topicIndexForPosition(state.position);
+      document.querySelectorAll(".topic-flow div").forEach((node, index) => {
+        node.classList.toggle("active", index === activeTopic);
+        node.classList.toggle("done", index < activeTopic);
+      });
+      renderRoute();
+    }
+
+    function renderTurn() {
+      $("turnName").textContent = `Jogador ${state.currentPlayer + 1}: ${state.players[state.currentPlayer]}`;
+      $("playerName0").textContent = state.players[0];
+      $("playerName1").textContent = state.players[1];
+      $("playerRow0").classList.toggle("active", state.currentPlayer === 0);
+      $("playerRow1").classList.toggle("active", state.currentPlayer === 1);
+    }
+
+    function renderQuestion() {
+      const item = currentQuestion();
+      $("roundCounter").textContent = `Rodada ${state.round}`;
+      $("topicName").textContent = item.topic;
+      $("questionText").textContent = item.q;
+      $("feedback").className = "feedback hidden";
+      $("rollBtn").classList.add("hidden");
+      $("nextBtn").classList.add("hidden");
+      const answers = $("answers");
+      answers.innerHTML = "";
+      answerOrderFor(item).forEach((originalIndex) => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "answer";
+        button.textContent = item.a[originalIndex];
+        button.addEventListener("click", () => answerQuestion(originalIndex, button));
+        answers.appendChild(button);
+      });
+      $("dice").className = "dice face-0";
+      $("dice").setAttribute("aria-label", "Dado ainda não lançado");
+      $("moveText").textContent = "Responda para movimentar a equipe";
+      $("markText").textContent = `Posição atual: casa ${state.position}`;
+      restoreSavedPhase(item);
+      renderTurn();
+      renderProgress();
+    }
+
+    function restoreSavedPhase(item) {
+      if (state.phase === "question") return;
+      const record = [...state.answersLog].reverse().find((entry) => entry.questionId === item.id && entry.round === state.round);
+      if (!record || record.questionId !== item.id) {
+        state.phase = "question";
+        save();
+        return;
+      }
+
+      disableAnswers();
+      const feedback = $("feedback");
+      feedback.classList.remove("hidden", "good", "bad");
+      const answerButtons = [...document.querySelectorAll(".answer")];
+
+      if (record.correct) {
+        const correctDisplayIndex = answerOrderFor(item).indexOf(item.correct);
+        answerButtons[correctDisplayIndex]?.classList.add("correct");
+        feedback.classList.add("good");
+        feedback.textContent = `Correto! ${item.note}`;
+        if (state.phase === "readyRoll") {
+          $("rollBtn").classList.remove("hidden");
+          $("moveText").textContent = "Resposta correta: dado liberado";
+          $("markText").textContent = "Gire o dado para descobrir o avanço";
+          return;
+        }
+        const movement = Number(record.positionAfter) - Number(record.positionBefore);
+        $("dice").className = `dice face-${record.roll}`;
+        $("dice").setAttribute("aria-label", `Resultado do dado: ${record.roll}`);
+        $("moveText").textContent = record.specialEvent || `Avance ${movement} ${movement === 1 ? "casa" : "casas"}`;
+      } else {
+        const selectedOriginalIndex = item.a.indexOf(record.selectedAnswer);
+        const selectedDisplayIndex = answerOrderFor(item).indexOf(selectedOriginalIndex);
+        answerButtons[selectedDisplayIndex]?.classList.add("wrong");
+        const movement = Number(record.positionBefore) - Number(record.positionAfter);
+        feedback.classList.add("bad");
+        feedback.textContent = `Resposta incorreta. ${item.note} A equipe deve voltar ${movement} ${movement === 1 ? "casa" : "casas"}.`;
+        $("moveText").textContent = movement ? `Volte ${movement} ${movement === 1 ? "casa" : "casas"}` : "Permaneça na casa 0";
+      }
+
+      $("markText").textContent = `Marque a casa ${state.position} no tabuleiro impresso`;
+      $("nextBtn").textContent = state.position >= 30 ? "Concluir partida" : "Próxima rodada";
+      $("nextBtn").classList.remove("hidden");
+    }
+
+    function disableAnswers() {
+      document.querySelectorAll(".answer").forEach((answer) => { answer.disabled = true; });
+    }
+
+    function answerQuestion(answerIndex, button) {
+      if (state.phase !== "question") return;
+      const item = currentQuestion();
+      const correct = answerIndex === item.correct;
+      disableAnswers();
+      const answerRecord = {
+        round: state.round,
+        playerNumber: state.currentPlayer + 1,
+        player: state.players[state.currentPlayer],
+        questionId: item.id,
+        topic: item.topic,
+        prompt: item.q,
+        selectedAnswer: item.a[answerIndex],
+        correctAnswer: item.a[item.correct],
+        correct,
+        positionBefore: state.position,
+        recordedAt: new Date().toLocaleString("pt-BR")
+      };
+      state.answersLog.push(answerRecord);
+      const feedback = $("feedback");
+      feedback.classList.remove("hidden", "good", "bad");
+
+      if (correct) {
+        button.classList.add("correct");
+        feedback.classList.add("good");
+        feedback.textContent = `Correto! ${item.note}`;
+        state.phase = "readyRoll";
+        $("rollBtn").classList.remove("hidden");
+        $("moveText").textContent = "Resposta correta: dado liberado";
+        $("markText").textContent = "Gire o dado para descobrir o avanço";
+        save();
+        return;
+      }
+
+      button.classList.add("wrong");
+      const oldPosition = state.position;
+      const penalty = randomInt(1, 3);
+      state.position = Math.max(0, state.position - penalty);
+      const moved = oldPosition - state.position;
+      answerRecord.penaltyDrawn = penalty;
+      answerRecord.positionAfter = state.position;
+      feedback.classList.add("bad");
+      feedback.textContent = `Resposta incorreta. ${item.note} A equipe deve voltar ${moved} ${moved === 1 ? "casa" : "casas"}.`;
+      state.history.push({
+        round: state.round, player: state.players[state.currentPlayer], topic: item.topic,
+        correct: false, movement: -moved, from: oldPosition, event: "", position: state.position
+      });
+      state.phase = "awaitNext";
+      $("moveText").textContent = moved ? `Volte ${moved} ${moved === 1 ? "casa" : "casas"}` : "Permaneça na casa 0";
+      $("markText").textContent = `Marque a casa ${state.position} no tabuleiro impresso`;
+      $("nextBtn").classList.remove("hidden");
+      renderProgress();
+      renderHistory();
+      save();
+    }
+
+    function rollDice() {
+      if (state.phase !== "readyRoll") return;
+      state.phase = "rolling";
+      const dice = $("dice");
+      const button = $("rollBtn");
+      button.disabled = true;
+      button.textContent = "Girando...";
+      dice.classList.add("rolling");
+      const animation = setInterval(() => {
+        dice.className = `dice face-${randomInt(1, 3)} rolling`;
+      }, 95);
+
+      setTimeout(() => {
+        clearInterval(animation);
+        const roll = randomInt(1, 3);
+        dice.className = `dice face-${roll}`;
+        dice.setAttribute("aria-label", `Resultado do dado: ${roll}`);
+        const oldPosition = state.position;
+        const landedAt = Math.min(30, state.position + roll);
+        state.position = landedAt;
+        const special = specialSquares[landedAt];
+        let eventText = "";
+        if (special?.type === "bonus") {
+          state.position = Math.min(30, state.position + 1);
+          eventText = special.text;
+        } else if (special?.type === "penalty") {
+          state.position = Math.max(0, state.position - 1);
+          eventText = special.text;
+        } else if (special?.type === "challenge") {
+          state.pendingChallenge = special.challenge;
+          eventText = `Desafio extra na casa ${landedAt}.`;
+        }
+        const item = currentQuestion();
+        const answerRecord = state.answersLog[state.answersLog.length - 1];
+        answerRecord.roll = roll;
+        answerRecord.positionAfter = state.position;
+        answerRecord.specialEvent = eventText || null;
+        state.history.push({
+          round: state.round, player: state.players[state.currentPlayer], topic: item.topic,
+          correct: true, movement: state.position - oldPosition, from: oldPosition,
+          landedAt, event: eventText, position: state.position
+        });
+        state.phase = "awaitNext";
+        $("moveText").textContent = eventText ? `Dado: ${roll}. ${eventText}` : `Avance ${roll} ${roll === 1 ? "casa" : "casas"}`;
+        $("markText").textContent = `Marque a casa ${state.position} no tabuleiro impresso`;
+        button.classList.add("hidden");
+        button.disabled = false;
+        button.textContent = "Girar o dado";
+        $("nextBtn").textContent = state.position >= 30 ? "Concluir partida" : "Próxima rodada";
+        $("nextBtn").classList.remove("hidden");
+        renderProgress();
+        renderHistory();
+        save();
+        if (special?.type === "challenge") setTimeout(() => openChallenge(special.challenge), 450);
+      }, 1450);
+    }
+
+    function openChallenge(challengeIndex) {
+      const challenge = challenges[challengeIndex];
+      if (!challenge) return;
+      $("challengeTitle").textContent = challenge.title;
+      $("challengeText").textContent = challenge.q;
+      $("challengeFeedback").className = "feedback hidden";
+      $("challengeContinue").classList.add("hidden");
+      const answers = $("challengeAnswers");
+      answers.innerHTML = "";
+      shuffledIndexes(challenge.a.length).forEach((answerIndex) => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "answer";
+        button.textContent = challenge.a[answerIndex];
+        button.addEventListener("click", () => resolveChallenge(challengeIndex, answerIndex, button));
+        answers.appendChild(button);
+      });
+      $("challengeOverlay").classList.remove("hidden");
+      answers.querySelector("button")?.focus();
+    }
+
+    function resolveChallenge(challengeIndex, answerIndex, selectedButton) {
+      if (state.pendingChallenge !== challengeIndex) return;
+      const challenge = challenges[challengeIndex];
+      const correct = answerIndex === challenge.correct;
+      const positionBefore = state.position;
+      state.position = correct ? Math.min(30, state.position + 2) : Math.max(0, state.position - 3);
+      const movement = state.position - positionBefore;
+      document.querySelectorAll("#challengeAnswers .answer").forEach((button) => {
+        button.disabled = true;
+        if (button.textContent === challenge.a[challenge.correct]) button.classList.add("correct");
+      });
+      if (!correct) selectedButton.classList.add("wrong");
+
+      const eventText = correct
+        ? `Desafio acertado: avance ${movement} ${movement === 1 ? "casa" : "casas"}.`
+        : `Desafio incorreto: volte ${Math.abs(movement)} ${Math.abs(movement) === 1 ? "casa" : "casas"}.`;
+      const historyItem = state.history[state.history.length - 1];
+      if (historyItem && historyItem.round === state.round) {
+        historyItem.event = eventText;
+        historyItem.position = state.position;
+        historyItem.movement = state.position - Number(historyItem.from ?? positionBefore);
+      }
+      const mainRecord = [...state.answersLog].reverse().find((entry) => entry.questionId === state.currentQuestionId && entry.round === state.round);
+      if (mainRecord) {
+        mainRecord.positionAfter = state.position;
+        mainRecord.specialEvent = eventText;
+      }
+      state.answersLog.push({
+        round: state.round,
+        playerNumber: state.currentPlayer + 1,
+        player: state.players[state.currentPlayer],
+        questionId: `DESAFIO-${challengeIndex + 1}`,
+        topic: "Desafio extra",
+        prompt: challenge.q,
+        selectedAnswer: challenge.a[answerIndex],
+        correctAnswer: challenge.a[challenge.correct],
+        correct,
+        positionBefore,
+        positionAfter: state.position,
+        recordedAt: new Date().toLocaleString("pt-BR")
+      });
+      state.pendingChallenge = null;
+
+      const feedback = $("challengeFeedback");
+      feedback.className = `feedback ${correct ? "good" : "bad"}`;
+      feedback.textContent = `${correct ? "Correto!" : "Ainda não."} ${challenge.note} ${eventText}`;
+      $("challengeContinue").classList.remove("hidden");
+      $("moveText").textContent = eventText;
+      $("markText").textContent = `Marque a casa ${state.position} no tabuleiro impresso`;
+      $("nextBtn").textContent = state.position >= 30 ? "Concluir partida" : "Próxima rodada";
+      renderProgress();
+      renderHistory();
+      save();
+      $("challengeContinue").focus();
+    }
+
+    function nextRound() {
+      if (state.position >= 30) return finish();
+      state.currentPlayer = state.currentPlayer === 0 ? 1 : 0;
+      state.round += 1;
+      state.currentQuestionId = null;
+      state.answerOrder = null;
+      chooseQuestion();
+      renderQuestion();
+    }
+
+    function renderHistory() {
+      const body = $("historyBody");
+      if (!state.history.length) {
+        body.innerHTML = '<tr class="empty-row"><td colspan="7">Nenhuma rodada registrada.</td></tr>';
+        return;
+      }
+      body.innerHTML = state.history.map((item) => {
+        const movement = item.movement > 0 ? `+${item.movement}` : String(item.movement);
+        const resultClass = item.correct ? "result-good" : "result-bad";
+        return `<tr><td>${item.round}</td><td>${escapeHtml(item.player)}</td><td>${escapeHtml(item.topic)}</td><td class="${resultClass}">${item.correct ? "Acertou" : "Errou"}</td><td>${movement}</td><td>${escapeHtml(item.event || "—")}</td><td>Casa ${item.position}</td></tr>`;
+      }).join("");
+    }
+
+    function escapeHtml(value) {
+      return String(value).replace(/[&<>'"]/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" }[char]));
+    }
+
+    function showGame() {
+      $("startScreen").classList.add("hidden");
+      $("finishScreen").classList.add("hidden");
+      $("gameScreen").classList.remove("hidden");
+      $("exportBtn").classList.remove("hidden");
+      $("teamDisplay").textContent = state.team;
+      $("classDisplay").textContent = state.className || "Sem turma informada";
+      if (!state.currentQuestionId) chooseQuestion();
+      renderHistory();
+      renderQuestion();
+      if (Number.isInteger(state.pendingChallenge)) setTimeout(() => openChallenge(state.pendingChallenge), 100);
+    }
+
+    function finish() {
+      state.finished = true;
+      state.position = 30;
+      save();
+      $("gameScreen").classList.add("hidden");
+      $("startScreen").classList.add("hidden");
+      $("finishScreen").classList.remove("hidden");
+      $("exportBtn").classList.add("hidden");
+      const correct = state.history.filter((item) => item.correct).length;
+      const wrong = state.history.length - correct;
+      $("finishSummary").textContent = `${state.team}, formada por ${state.players[0]} e ${state.players[1]}, concluiu a revisão em ${state.history.length} rodadas: ${correct} respostas corretas e ${wrong} incorretas.`;
+    }
+
+    function exportResult() {
+      const result = {
+        atividade: "Corrida da Tabela - Dupla Semântica",
+        equipe: state.team,
+        jogadores: state.players,
+        turma: state.className || null,
+        inicio: state.startedAt,
+        exportadoEm: new Date().toISOString(),
+        posicaoFinal: state.position,
+        respostas: state.answersLog,
+        rodadas: state.history
+      };
+      const safeName = state.team.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "").toLowerCase() || "equipe";
+      const blob = new Blob([JSON.stringify(result, null, 2)], { type: "application/json" });
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = `resultado-corrida-tabela-${safeName}.json`;
+      link.click();
+      URL.revokeObjectURL(link.href);
+    }
+
+    function resetGame() {
+      if (state.team && !confirm("Deseja apagar a partida atual e começar novamente?")) return;
+      localStorage.removeItem(STORAGE_KEY);
+      state = freshState();
+      $("gameScreen").classList.add("hidden");
+      $("finishScreen").classList.add("hidden");
+      $("startScreen").classList.remove("hidden");
+      $("challengeOverlay").classList.add("hidden");
+      $("exportBtn").classList.add("hidden");
+      $("startForm").reset();
+      $("teamName").focus();
+    }
+
+    $("startForm").addEventListener("submit", (event) => {
+      event.preventDefault();
+      state.team = $("teamName").value.trim();
+      state.players = [$("player1").value.trim(), $("player2").value.trim()];
+      state.className = $("className").value.trim();
+      state.startedAt = new Date().toISOString();
+      chooseQuestion();
+      save();
+      showGame();
+    });
+    $("rollBtn").addEventListener("click", rollDice);
+    $("nextBtn").addEventListener("click", nextRound);
+    $("challengeContinue").addEventListener("click", () => {
+      $("challengeOverlay").classList.add("hidden");
+      $("nextBtn").focus();
+    });
+    $("exportBtn").addEventListener("click", exportResult);
+    $("finishExportBtn").addEventListener("click", exportResult);
+    $("resetBtn").addEventListener("click", resetGame);
+    $("finishResetBtn").addEventListener("click", resetGame);
+
+    load();
+    if (state.finished) finish();
+    else if (state.team) showGame();
+  </script>
+</body>
+</html>
